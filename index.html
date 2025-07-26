@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LaTeX Font Comparison</title>
+    <meta
+      name="description"
+      content="Compare the appearance of LaTeX fonts by rendering test documents side-by-side with scroll sync."
+    />
+    <style>
+      body {
+        margin: 0;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+        font-family: sans-serif;
+        flex-direction: row;
+      }
+      .viewer {
+        margin-top: 60px;
+        flex: 1;
+        overflow-y: scroll;
+        position: relative;
+        border-right: 1px solid #ccc;
+        height: calc(100vh - 60px);
+        box-sizing: border-box;
+      }
+      #topbar {
+        position: absolute;
+        width: 100%;
+        background: #f4f4f4;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        height: 60px;
+
+        div {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          flex: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="topbar">
+      <div class="select-wrapper">
+        <label for="selectA">Font A</label>
+        <select id="selectA"></select>
+      </div>
+      <div class="topbar-zoom">
+        <label for="zoomSlider">Zoom</label>
+        <input
+          type="range"
+          min="0.5"
+          max="3.5"
+          step="0.1"
+          value="1.5"
+          id="zoomSlider"
+          list="zoomTicks"
+          onchange="setZoom(parseFloat(this.value))"
+        />
+        <datalist id="zoomTicks">
+          <option value="0.5" label="50%"></option>
+          <option value="1.0" label="100%"></option>
+          <option value="1.5" label="150%"></option>
+          <option value="2.0" label="200%"></option>
+          <option value="2.5" label="250%"></option>
+          <option value="3.0" label="300%"></option>
+          <option value="3.5" label="350%"></option>
+        </datalist>
+      </div>
+      <div class="select-wrapper">
+        <label for="selectB">Font B</label>
+        <select id="selectB"></select>
+      </div>
+    </div>
+
+    <div id="viewerA" class="viewer"></div>
+    <div id="viewerB" class="viewer"></div>
+
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+      integrity="sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <script>
+      let zoomLevel = 2; // default zoom level
+      const pageHeight = 841.89; // height of the PDF pages, corresponds to A4
+      const pageWidth = 595.276; // width  of the PDF pages, corresponds to A4
+
+      let fontList = {};
+      const pdfInstances = [null, null];
+      const renderedPages = [new Set(), new Set()];
+      const map = [[], []];
+      const viewer = [
+        document.getElementById("viewerA"),
+        document.getElementById("viewerB"),
+      ];
+      const select = [
+        document.getElementById("selectA"),
+        document.getElementById("selectB"),
+      ];
+
+      async function loadFontList() {
+        const res = await fetch("fonts.json");
+        fontList = await res.json();
+
+        for (let font in fontList) {
+          select[0].appendChild(new Option(fontList[font].name, font));
+          select[1].appendChild(new Option(fontList[font].name, font));
+        }
+        select[0].value = "latinmodern";
+        select[1].value = "newcmbook";
+      }
+
+      async function renderPage(viewId, pageNum, container) {
+        const pdf = pdfInstances[viewId];
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: zoomLevel });
+
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        container.replaceChildren([]);
+        container.appendChild(canvas);
+        container.style.minHeight = `${viewport.height}px`;
+
+        await page.render({ canvasContext: context, viewport }).promise;
+      }
+
+      function observeVisiblePages(viewId) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                const pageNum = parseInt(entry.target.dataset.page);
+                if (!renderedPages[viewId].has(pageNum)) {
+                  renderedPages[viewId].add(pageNum);
+                  renderPage(viewId, pageNum, entry.target);
+                }
+              }
+            }
+          },
+          {
+            root: viewer[viewId],
+            rootMargin: "200px 0px", // preload a bit before it comes into view
+            threshold: 0.1,
+          }
+        );
+
+        viewer[viewId]
+          .querySelectorAll(".page-container")
+          .forEach((el) => observer.observe(el));
+      }
+
+      async function loadPDF(viewId, pdfUrl) {
+        renderedPages[viewId].clear();
+        viewer[viewId].replaceChildren([]);
+        const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+        pdfInstances[viewId] = pdf;
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const pageContainer = document.createElement("div");
+          pageContainer.className = "page-container";
+          pageContainer.dataset.page = pageNum;
+          pageContainer.style.minHeight = `${pageHeight * zoomLevel}px`;
+          pageContainer.style.minWidth = `${pageWidth * zoomLevel}px`;
+          viewer[viewId].appendChild(pageContainer);
+        }
+        observeVisiblePages(viewId);
+      }
+
+      /**
+       * given a non-empty strictly increasing array and a monotonic predicate,
+       * return (array[r0], array[r1]) with 0 <= r0 <= r1 < array.length such that
+       *   (pred(array[0]) && r0 == 0 && 0 <= r1 <= 1) ||
+       *   (!pred(array[array.length - 1)] && r1 == array.length - 1 && array.length - 2 <= r0 <= array.length - 1) ||
+       *   (r0 == i - 1 && r1 == i && !pred(array[i - 1]) && pred(array[i]))
+       */
+      function binarySearch(array, pred) {
+        let low = 0;
+        let high = array.length - 1;
+        while (high - low > 1) {
+          const mid = (low + high) >> 1;
+          if (pred(array[mid])) {
+            high = mid;
+          } else {
+            low = mid;
+          }
+        }
+        return [array[low], array[high]];
+      }
+
+      function linearInterpolation(x, x0, x1, y0, y1) {
+        if (x <= x0) return y0;
+        if (x >= x1) return y1;
+        return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
+      }
+
+      function interpolateScroll(srcId, dstId, srcY) {
+        const pdfSrcY = srcY / zoomLevel;
+
+        // interpolate the line in the tex file corresponding to the position in the source pdf
+        const [p1, p2] = binarySearch(map[srcId], (elem) => elem.y >= pdfSrcY);
+        const interpLine = linearInterpolation(
+          pdfSrcY,
+          p1.y,
+          p2.y,
+          p1.line,
+          p2.line
+        );
+
+        // interpolate the position in the destination pdf corresponding to the line in the tex file
+        const [r1, r2] = binarySearch(
+          map[dstId],
+          (elem) => elem.line >= interpLine
+        );
+        const interpPdfY = linearInterpolation(
+          interpLine,
+          r1.line,
+          r2.line,
+          r1.y,
+          r2.y
+        );
+
+        return zoomLevel * interpPdfY;
+      }
+
+      function syncScroll(srcId, dstId) {
+        // compute the scroll required in the destination view such that the
+        // content at the middle of the source view is at the same height.
+        const srcY = viewer[srcId].scrollTop + viewer[srcId].clientHeight / 2;
+        const srcX = viewer[srcId].scrollLeft;
+        const dstY = interpolateScroll(srcId, dstId, srcY);
+
+        viewer[dstId].scrollTo({
+          top: dstY - viewer[srcId].clientHeight / 2,
+          left: srcX,
+        });
+      }
+
+      let initRender = true;
+      let refreshingView = false;
+      async function refreshView(viewId) {
+        refreshingView = true;
+        viewer[viewId].innerHTML = "";
+        const selectFont = select[viewId].value;
+        if (!(selectFont in fontList)) {
+          console.log(`Unknown font choice ${selectFont}`);
+          return;
+        }
+        const res = await fetch(`map-${selectFont}.json`);
+        map[viewId] = await res.json();
+        const pdfUrl = `doc-${selectFont}.pdf`;
+        await loadPDF(viewId, pdfUrl);
+
+        refreshingView = false;
+        if (initRender) {
+          viewer[viewId].scrollTo({
+            left: (pageWidth * zoomLevel - viewer[viewId].clientWidth) / 2,
+          });
+          initRender = false;
+        } else {
+          syncScroll(1 - viewId, viewId);
+        }
+
+        console.log(`Loaded PDF at url ${pdfUrl} in viewer ${viewId}`);
+      }
+
+      function setZoom(newZoom) {
+        const logicalX =
+          (viewer[0].scrollLeft + viewer[0].clientWidth / 2) / zoomLevel;
+        const logicalY =
+          (viewer[0].scrollTop + viewer[0].clientHeight / 2) / zoomLevel;
+
+        zoomLevel = newZoom;
+
+        for (let viewId = 0; viewId < 2; viewId++) {
+          renderedPages[viewId].clear();
+          viewer[viewId].querySelectorAll(".page-container").forEach((el) => {
+            el.style.minHeight = `${pageHeight * zoomLevel}px`;
+            el.style.minWidth = `${pageWidth * zoomLevel}px`;
+            const placeholder = document.createElement("div");
+            placeholder.style.height = `${pageHeight * zoomLevel}px`;
+            placeholder.style.width = `${pageWidth * zoomLevel}px`;
+            el.replaceChildren(placeholder);
+          });
+          observeVisiblePages(viewId);
+        }
+
+        viewer[0].scrollTo({
+          left: logicalX * zoomLevel - viewer[0].clientWidth / 2,
+          top: logicalY * zoomLevel - viewer[0].clientHeight / 2,
+        });
+      }
+
+      function setupSync() {
+        let activeSource = null;
+        let nextResetTime = 0;
+
+        function handleScroll(srcId, dstId) {
+          // a view is being refreshed, so the scrollings must not be updated
+          if (refreshingView) return;
+
+          // when scrolling in one view, prevent the synchronization to fire the scroll event as a feedback
+          if (activeSource !== null && activeSource !== srcId) return;
+
+          activeSource = srcId;
+          nextResetTime = Date.now() + 800; // the maximum duration of the smooth scroll animation on Chromium seems to be of 750ms (cf https://source.chromium.org/chromium/chromium/src/+/main:android_webview/java/src/org/chromium/android_webview/AwScrollOffsetManager.java;l=28;drc=8867c23d07261fa431c1fa89470988eb240a7afe )
+          syncScroll(srcId, dstId);
+        }
+
+        viewer[0].addEventListener("scroll", () => handleScroll(0, 1));
+        viewer[1].addEventListener("scroll", () => handleScroll(1, 0));
+
+        // consider back the scroll events from the "other" view
+        setInterval(() => {
+          if (activeSource !== null && Date.now() >= nextResetTime) {
+            activeSource = null;
+          }
+        }, 500);
+      }
+
+      loadFontList().then(() => {
+        document.getElementById("zoomSlider").value = zoomLevel;
+        setupSync();
+        refreshView(0);
+        refreshView(1);
+        select[0].addEventListener("change", () => refreshView(0));
+        select[1].addEventListener("change", () => refreshView(1));
+      });
+    </script>
+  </body>
+</html>

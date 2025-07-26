@@ -1,0 +1,34 @@
+{
+  "latinmodern": {
+    "name": "Latin Modern",
+    "command": "\\usepackage{lmodern}"
+  },
+  "newcmbook": {
+    "name": "NewCM-Book",
+    "command": "\\usepackage[default]{fontsetup}"
+  },
+  "newcmregular": {
+    "name": "NewCM-Regular",
+    "command": "\\usepackage[olddefault]{fontsetup}"
+  },
+  "fira": {
+    "name": "Fira",
+    "command": "\\usepackage[fira]{fontsetup}"
+  },
+  "libertinus": {
+    "name": "Libertinus",
+    "command": "\\usepackage[libertinus]{fontsetup}"
+  },
+  "stixtwo": {
+    "name": "Stix2",
+    "command": "\\usepackage[stixtwo]{fontsetup}"
+  },
+  "mlmodern": {
+    "name": "MLModern",
+    "command": "\\usepackage{mlmodern}"
+  },
+  "texgyretermes": {
+    "name": "Tex Gyre Termes",
+    "command": "\\usepackage{unicode-math}\\setromanfont{TeX Gyre Termes}\\setsansfont{TeX Gyre Heros}\\setmonofont{TeX Gyre Cursor}[Ligatures=NoCommon]\\setmathfont{TeX Gyre Termes Math}"
+  }
+}
