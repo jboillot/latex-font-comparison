@@ -6,7 +6,7 @@ This project provides a simple, browser-based tool for comparing how a LaTeX doc
 
 ### Regenerate the PDF and map files
 
-To regenerate all auxiliary files (PDFs and scroll maps):
+To regenerate all the auxiliary files (PDFs and scroll maps):
 
 ```
 make clean && make -j8

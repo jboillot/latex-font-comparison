@@ -11,9 +11,9 @@ LATEXMK_PDF = $(TEXFILE:.tex=.pdf)
 
 all: $(TARGETS)
 
-generate-%: doc-%.pdf map-%.json ;
+generate-%: dist/doc-%.pdf dist/map-%.json ;
 
-doc-%.pdf map-%.json: $(TEXFILE)
+dist/doc-%.pdf dist/map-%.json: $(TEXFILE)
 	@echo "Generating $*"
 	tmpdir=$$(mktemp -d) && \
 	font=$* && \
@@ -35,10 +35,10 @@ doc-%.pdf map-%.json: $(TEXFILE)
 		done && \
 		echo " ]" >> map.json; \
 	) && \
-	mv $$tmpdir/$(LATEXMK_PDF) doc-$*.pdf && \
-	mv $$tmpdir/map.json map-$*.json
+	mv $$tmpdir/$(LATEXMK_PDF) dist/doc-$*.pdf && \
+	mv $$tmpdir/map.json dist/map-$*.json
 
 clean:
-	rm -f doc-*.pdf map-*.json
+	rm -f dist/doc-*.pdf dist/map-*.json
 
-.PRECIOUS: doc-%.pdf map-%.json
+.PRECIOUS: dist/doc-%.pdf dist/map-%.json

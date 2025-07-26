@@ -254,9 +254,9 @@
           console.log(`Unknown font choice ${selectFont}`);
           return;
         }
-        const res = await fetch(`map-${selectFont}.json`);
+        const res = await fetch(`dist/map-${selectFont}.json`);
         map[viewId] = await res.json();
-        const pdfUrl = `doc-${selectFont}.pdf`;
+        const pdfUrl = `dist/doc-${selectFont}.pdf`;
         await loadPDF(viewId, pdfUrl);
 
         refreshingView = false;
