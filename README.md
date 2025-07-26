@@ -4,6 +4,10 @@ This project provides a simple, browser-based tool for comparing how a LaTeX doc
 
 ## How to use
 
+### Compare pre-computed fonts on the example document
+
+You can visit the webpage at [https://jboillot.github.io/latex-font-comparison/](https://jboillot.github.io/latex-font-comparison/).
+
 ### Regenerate the PDF and map files
 
 To regenerate all the auxiliary files (PDFs and scroll maps):
