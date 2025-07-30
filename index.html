@@ -15,9 +15,15 @@
         height: 100vh;
         overflow: hidden;
         font-family: sans-serif;
-        flex-direction: column;
-        @media screen and (min-width: 70vh) {
-          flex-direction: row;
+        flex-direction: row;
+      }
+      @media screen and (max-width: 70vh) {
+        body {
+          flex-direction: column;
+        }
+        #viewerB {
+          margin-top: 0px;
+          border-top: 1px solid lightgrey;
         }
       }
       .viewer {
@@ -100,7 +106,7 @@
       const pageWidth = 595.276; // width  of the PDF pages, corresponds to A4
       const zoomCoeff =
         ((window.screen.width / pageWidth) * 0.7) /
-        (window.screen.width >= 0.7 * window.screen.height ? 2 : 1);
+        (window.screen.width <= 0.7 * window.screen.height ? 1 : 2);
       let zoomLevel = zoomCoeff * 2; // default zoom level
 
       let fontList = {};
