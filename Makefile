@@ -36,7 +36,8 @@ dist/doc-%.pdf dist/map-%.json: $(TEXFILE)
 		echo " ]" >> map.json; \
 	) && \
 	mv $$tmpdir/$(LATEXMK_PDF) dist/doc-$*.pdf && \
-	mv $$tmpdir/map.json dist/map-$*.json
+	mv $$tmpdir/map.json dist/map-$*.json && \
+	rm -rf "$$tmpdir"
 
 clean:
 	rm -f dist/doc-*.pdf dist/map-*.json

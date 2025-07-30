@@ -15,7 +15,10 @@
         height: 100vh;
         overflow: hidden;
         font-family: sans-serif;
-        flex-direction: row;
+        flex-direction: column;
+        @media screen and (min-width: 70vh) {
+          flex-direction: row;
+        }
       }
       .viewer {
         margin-top: 60px;
@@ -57,10 +60,9 @@
           min="0.5"
           max="3.5"
           step="0.1"
-          value="1.5"
+          value="2"
           id="zoomSlider"
           list="zoomTicks"
-          onchange="setZoom(parseFloat(this.value))"
         />
         <datalist id="zoomTicks">
           <option value="0.5" label="50%"></option>
@@ -82,15 +84,24 @@
     <div id="viewerB" class="viewer"></div>
 
     <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
-      integrity="sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ=="
+      src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.54/pdf.min.mjs"
+      type="module"
+      integrity="sha512-vH3rLFHNL4b+lq+OILTas2miusQD3P3hBNcCWP/aQFVWCRQmhkj3lWgaawg8oQ7TLleFRRddc16HyMnq2hOEtQ=="
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     ></script>
-    <script>
-      let zoomLevel = 2; // default zoom level
+    <script type="module">
+      const { pdfjsLib } = globalThis;
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.54/pdf.worker.min.mjs";
+
+      const dpr = window.devicePixelRatio || 1;
       const pageHeight = 841.89; // height of the PDF pages, corresponds to A4
       const pageWidth = 595.276; // width  of the PDF pages, corresponds to A4
+      const zoomCoeff =
+        ((window.screen.width / pageWidth) * 0.7) /
+        (window.screen.width >= 0.7 * window.screen.height ? 2 : 1);
+      let zoomLevel = zoomCoeff * 2; // default zoom level
 
       let fontList = {};
       const pdfInstances = [null, null];
@@ -124,13 +135,19 @@
 
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        container.replaceChildren([]);
-        container.appendChild(canvas);
+
+        canvas.style.width = `${Math.floor(viewport.width)}px`;
+        canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+        canvas.width = viewport.width * dpr;
+        canvas.height = viewport.height * dpr;
+
+        const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null;
+
+        container.replaceChildren(canvas);
         container.style.minHeight = `${viewport.height}px`;
 
-        await page.render({ canvasContext: context, viewport }).promise;
+        page.render({ canvasContext: context, viewport, transform });
       }
 
       function observeVisiblePages(viewId) {
@@ -278,7 +295,7 @@
         const logicalY =
           (viewer[0].scrollTop + viewer[0].clientHeight / 2) / zoomLevel;
 
-        zoomLevel = newZoom;
+        zoomLevel = zoomCoeff * newZoom;
 
         for (let viewId = 0; viewId < 2; viewId++) {
           renderedPages[viewId].clear();
@@ -326,13 +343,29 @@
         }, 500);
       }
 
+      // Keep the content centered when resizing the window
+      let prevViewerWidth = viewer[0].clientWidth;
+      function resize() {
+        let viewerWidth = viewer[0].clientWidth;
+        viewer[0].scrollTo({
+          left: viewer[0].scrollLeft + (prevViewerWidth - viewerWidth) / 2,
+        });
+        prevViewerWidth = viewerWidth;
+      }
+
       loadFontList().then(() => {
-        document.getElementById("zoomSlider").value = zoomLevel;
+        const zoomSlider = document.getElementById("zoomSlider");
+        zoomSlider.value = zoomLevel / zoomCoeff;
+        zoomSlider.addEventListener("change", () =>
+          setZoom(parseFloat(zoomSlider.value))
+        );
+
         setupSync();
         refreshView(0);
         refreshView(1);
         select[0].addEventListener("change", () => refreshView(0));
         select[1].addEventListener("change", () => refreshView(1));
+        window.addEventListener("resize", resize);
       });
     </script>
   </body>
